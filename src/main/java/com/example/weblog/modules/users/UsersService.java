@@ -1,0 +1,68 @@
+package com.example.weblog.modules.users;
+
+
+import com.example.weblog.MyBeanCopy;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.util.ResourceUtils;
+
+import javax.transaction.Transactional;
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+@Service
+public class UsersService {
+    private UsersRepo usersRepo;
+
+    @Autowired
+    public UsersService(UsersRepo usersRepository) {
+        this.usersRepo = usersRepository;
+    }
+
+    @Transactional
+    public Users registerUser(Users users) throws IOException, InvocationTargetException, IllegalAccessException {
+        if (!users.getFile().isEmpty()) {
+            String path = ResourceUtils.getFile("classpath:static/img").getAbsolutePath();
+            byte[] bytes = users.getFile().getBytes();
+            String name = UUID.randomUUID() + "." + Objects.requireNonNull(users.getFile().getContentType()).split("/")[1];
+            Files.write(Paths.get(path + File.separator + name), bytes);
+            users.setCover(name);
+        }
+
+        if (!users.getPassword().isEmpty())
+            users.setPassword(new BCryptPasswordEncoder().encode(users.getPassword()));
+
+        if (users.getId() != null) {
+            Users exist = usersRepo.getOne(users.getId());
+            MyBeanCopy myBeanCopy = new MyBeanCopy();
+            myBeanCopy.copyProperties(exist, users);
+            return usersRepo.save(exist);
+        }
+
+        return this.usersRepo.save(users);
+    }
+
+    public List<Users> findAllUsers() {
+        return this.usersRepo.findAll();
+    }
+
+
+    public Users findById(Long id) {
+        return usersRepo.getOne(id);
+    }
+
+    public void deleteById(Long id) {
+        usersRepo.deleteById(id);
+    }
+
+    public Users findByEmail(String email) {
+        return usersRepo.findByEmail(email);
+    }
+}
